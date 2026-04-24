@@ -686,6 +686,14 @@
     updateWaterfall(NaN, NaN, NaN, NaN);
   });
 
+  /* ── Defaults ── */
+  (function loadDefaults() {
+    $('cost').value     = '30';    markUser($('cost'));
+    $('mfg-pct').value  = '70';    markUser($('mfg-pct'));   mode.mfg   = 'pct';
+    $('disti-pct').value = '5';    markUser($('disti-pct')); mode.disti = 'pct';
+    $('var-pct').value  = '20';    markUser($('var-pct'));   mode.var   = 'pct';
+  })();
+
   recalculate();
 })();
 </script>
