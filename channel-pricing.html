@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Channel Pricing Model</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: #f0f4f8;
+      color: #2d3748;
+      padding: 2rem;
+      min-height: 100vh;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; }
+
+    header { margin-bottom: 1.5rem; }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #1a202c;
+      margin-bottom: 0.3rem;
+    }
+
+    .subtitle {
+      font-size: 0.82rem;
+      color: #718096;
+    }
+
+    /* ── TABLE ── */
+    .pricing-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.05);
+    }
+
+    .pricing-table th {
+      background: #1a202c;
+      color: #e2e8f0;
+      text-align: left;
+      padding: 12px 18px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      white-space: nowrap;
+    }
+
+    .pricing-table td {
+      padding: 14px 18px;
+      border-bottom: 1px solid #edf2f7;
+      vertical-align: middle;
+    }
+
+    .pricing-table tbody tr:last-child td { border-bottom: none; }
+
+    tr.row-cost  { background: #fffdf7; }
+    tr.row-mfg   { background: #f0fff4; }
+    tr.row-disti { background: #ebf8ff; }
+    tr.row-var   { background: #faf5ff; }
+
+    /* Level badge */
+    .level-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .level-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .dot-cost  { background: #ed8936; }
+    .dot-mfg   { background: #48bb78; }
+    .dot-disti { background: #4299e1; }
+    .dot-var   { background: #9f7aea; }
+
+    .level-name { font-weight: 600; font-size: 0.88rem; }
+
+    /* Input groups */
+    .input-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .prefix, .suffix {
+      color: #a0aec0;
+      font-size: 0.82rem;
+      font-weight: 500;
+      user-select: none;
+    }
+
+    input[type="number"] {
+      width: 108px;
+      padding: 7px 9px;
+      border: 2px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      color: #2d3748;
+      background: #fff;
+      transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      -moz-appearance: textfield;
+    }
+
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { opacity: 0.4; }
+
+    input[type="number"]:focus {
+      outline: none;
+      border-color: #4299e1;
+      box-shadow: 0 0 0 3px rgba(66,153,225,0.18);
+    }
+
+    input.is-user {
+      border-color: #68d391;
+      background: #f0fff4;
+    }
+    input.is-user:focus {
+      border-color: #48bb78;
+      box-shadow: 0 0 0 3px rgba(72,187,120,0.18);
+    }
+
+    input.is-calc {
+      background: #f7fafc;
+      color: #718096;
+      border-color: #e2e8f0;
+    }
+
+    input.is-error {
+      border-color: #fc8181;
+      background: #fff5f5;
+      color: #c53030;
+    }
+
+    /* Computed value cells */
+    .cv {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.88rem;
+      color: #4a5568;
+      white-space: nowrap;
+    }
+    .cv.muted { color: #cbd5e0; }
+    .cv.neg   { color: #e53e3e; }
+
+    /* ── LEGEND ── */
+    .legend {
+      display: flex;
+      gap: 1.25rem;
+      margin-top: 0.9rem;
+      font-size: 0.76rem;
+      color: #718096;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+
+    .swatch {
+      width: 14px; height: 14px;
+      border-radius: 3px;
+    }
+    .swatch-user { background: #c6f6d5; border: 2px solid #68d391; }
+    .swatch-calc { background: #f7fafc; border: 2px solid #e2e8f0; }
+    .swatch-err  { background: #fff5f5; border: 2px solid #fc8181; }
+
+    /* ── WATERFALL ── */
+    .summary {
+      margin-top: 1.5rem;
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .summary-title {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: #a0aec0;
+      font-weight: 600;
+      margin-bottom: 1.1rem;
+    }
+
+    .waterfall {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+    }
+
+    .wf-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      gap: 6px;
+    }
+
+    .wf-val {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #2d3748;
+      white-space: nowrap;
+    }
+
+    .wf-bar-wrap {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      height: 90px;
+    }
+
+    .wf-bar {
+      width: 100%;
+      border-radius: 5px 5px 0 0;
+      transition: height 0.25s ease;
+      min-height: 0;
+    }
+
+    .bar-cost  { background: linear-gradient(180deg, #f6ad55, #ed8936); }
+    .bar-mfg   { background: linear-gradient(180deg, #68d391, #48bb78); }
+    .bar-disti { background: linear-gradient(180deg, #63b3ed, #4299e1); }
+    .bar-var   { background: linear-gradient(180deg, #b794f4, #9f7aea); }
+
+    .wf-label {
+      font-size: 0.67rem;
+      text-align: center;
+      color: #a0aec0;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .wf-arrow {
+      color: #cbd5e0;
+      font-size: 1.1rem;
+      margin-bottom: 36px;
+      flex: none;
+      padding: 0 2px;
+    }
+
+    /* ── ACTIONS ── */
+    .actions {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .btn-reset {
+      padding: 7px 16px;
+      font-size: 0.78rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      background: #fff;
+      color: #718096;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .btn-reset:hover { background: #edf2f7; color: #2d3748; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Channel Pricing Model</h1>
+    <p class="subtitle">
+      Enter Cost plus any one of Margin % or Price per level — the other is calculated automatically.
+      Margin uses gross margin: <em>(Sell Price − Base) ÷ Sell Price</em>.
+    </p>
+  </header>
+
+  <table class="pricing-table">
+    <thead>
+      <tr>
+        <th style="width:130px">Level</th>
+        <th>Base</th>
+        <th>Margin %</th>
+        <th>Margin $</th>
+        <th>Sell Price</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <!-- Cost -->
+      <tr class="row-cost">
+        <td>
+          <div class="level-badge">
+            <div class="level-dot dot-cost"></div>
+            <span class="level-name">Cost</span>
+          </div>
+        </td>
+        <td><span class="cv muted">—</span></td>
+        <td><span class="cv muted">—</span></td>
+        <td><span class="cv muted">—</span></td>
+        <td>
+          <div class="input-group">
+            <span class="prefix">$</span>
+            <input type="number" id="cost" placeholder="0.00" step="0.01" min="0">
+          </div>
+        </td>
+      </tr>
+
+      <!-- MFG -->
+      <tr class="row-mfg">
+        <td>
+          <div class="level-badge">
+            <div class="level-dot dot-mfg"></div>
+            <span class="level-name">MFG</span>
+          </div>
+        </td>
+        <td><span class="cv" id="mfg-base">—</span></td>
+        <td>
+          <div class="input-group">
+            <input type="number" id="mfg-pct" placeholder="0.00" step="0.01" min="0" max="99.99">
+            <span class="suffix">%</span>
+          </div>
+        </td>
+        <td><span class="cv" id="mfg-dollar">—</span></td>
+        <td>
+          <div class="input-group">
+            <span class="prefix">$</span>
+            <input type="number" id="mfg-price" placeholder="0.00" step="0.01" min="0">
+          </div>
+        </td>
+      </tr>
+
+      <!-- Disti -->
+      <tr class="row-disti">
+        <td>
+          <div class="level-badge">
+            <div class="level-dot dot-disti"></div>
+            <span class="level-name">Distributor</span>
+          </div>
+        </td>
+        <td><span class="cv" id="disti-base">—</span></td>
+        <td>
+          <div class="input-group">
+            <input type="number" id="disti-pct" placeholder="0.00" step="0.01" min="0" max="99.99">
+            <span class="suffix">%</span>
+          </div>
+        </td>
+        <td><span class="cv" id="disti-dollar">—</span></td>
+        <td>
+          <div class="input-group">
+            <span class="prefix">$</span>
+            <input type="number" id="disti-price" placeholder="0.00" step="0.01" min="0">
+          </div>
+        </td>
+      </tr>
+
+      <!-- VAR -->
+      <tr class="row-var">
+        <td>
+          <div class="level-badge">
+            <div class="level-dot dot-var"></div>
+            <span class="level-name">VAR</span>
+          </div>
+        </td>
+        <td><span class="cv" id="var-base">—</span></td>
+        <td>
+          <div class="input-group">
+            <input type="number" id="var-pct" placeholder="0.00" step="0.01" min="0" max="99.99">
+            <span class="suffix">%</span>
+          </div>
+        </td>
+        <td><span class="cv" id="var-dollar">—</span></td>
+        <td>
+          <div class="input-group">
+            <span class="prefix">$</span>
+            <input type="number" id="var-price" placeholder="0.00" step="0.01" min="0">
+          </div>
+        </td>
+      </tr>
+
+    </tbody>
+  </table>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="swatch swatch-user"></div><span>User input</span>
+    </div>
+    <div class="legend-item">
+      <div class="swatch swatch-calc"></div><span>Calculated</span>
+    </div>
+    <div class="legend-item">
+      <div class="swatch swatch-err"></div><span>Invalid (margin ≥ 100% or price below base)</span>
+    </div>
+  </div>
+
+  <!-- Waterfall chart -->
+  <div class="summary">
+    <div class="summary-title">Price waterfall</div>
+    <div class="waterfall">
+      <div class="wf-item">
+        <div class="wf-val" id="wf-cost-val">—</div>
+        <div class="wf-bar-wrap">
+          <div class="wf-bar bar-cost" id="wf-cost-bar" style="height:0"></div>
+        </div>
+        <div class="wf-label">Cost</div>
+      </div>
+      <div class="wf-arrow">›</div>
+      <div class="wf-item">
+        <div class="wf-val" id="wf-mfg-val">—</div>
+        <div class="wf-bar-wrap">
+          <div class="wf-bar bar-mfg" id="wf-mfg-bar" style="height:0"></div>
+        </div>
+        <div class="wf-label">MFG Price</div>
+      </div>
+      <div class="wf-arrow">›</div>
+      <div class="wf-item">
+        <div class="wf-val" id="wf-disti-val">—</div>
+        <div class="wf-bar-wrap">
+          <div class="wf-bar bar-disti" id="wf-disti-bar" style="height:0"></div>
+        </div>
+        <div class="wf-label">Disti Price</div>
+      </div>
+      <div class="wf-arrow">›</div>
+      <div class="wf-item">
+        <div class="wf-val" id="wf-var-val">—</div>
+        <div class="wf-bar-wrap">
+          <div class="wf-bar bar-var" id="wf-var-bar" style="height:0"></div>
+        </div>
+        <div class="wf-label">VAR Price</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn-reset" id="btn-reset">Reset All</button>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+(function () {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+
+  // Per-level driver: 'pct' | 'price' | null
+  const mode = { mfg: null, disti: null, var: null };
+
+  /* ── Helpers ── */
+  function isOk(n) { return typeof n === 'number' && isFinite(n) && !isNaN(n); }
+
+  function fmtUSD(n) { return isOk(n) ? '$' + n.toFixed(2) : '—'; }
+
+  // Gross margin: price = base / (1 − pct/100)
+  function priceFromPct(base, pct) {
+    if (!isOk(base) || !isOk(pct) || pct >= 100 || pct < 0) return NaN;
+    return base / (1 - pct / 100);
+  }
+
+  // Gross margin: pct = (price − base) / price * 100
+  function pctFromPrice(base, price) {
+    if (!isOk(base) || !isOk(price) || price === 0) return NaN;
+    return (price - base) / price * 100;
+  }
+
+  function getVal(id) { return parseFloat($(id).value); }
+
+  function markUser(el) {
+    el.classList.add('is-user');
+    el.classList.remove('is-calc', 'is-error');
+  }
+
+  function markCalc(el, value) {
+    if (isOk(value)) {
+      el.value = value.toFixed(2);
+      el.classList.add('is-calc');
+      el.classList.remove('is-user', 'is-error');
+    } else {
+      el.value = '';
+      el.classList.remove('is-calc', 'is-user', 'is-error');
+    }
+  }
+
+  function markError(el) {
+    el.classList.add('is-error');
+    el.classList.remove('is-calc', 'is-user');
+  }
+
+  function setCVText(id, n, negative) {
+    const el = $(id);
+    if (isOk(n)) {
+      el.textContent = fmtUSD(n);
+      el.classList.toggle('neg', n < 0);
+      el.classList.remove('muted');
+    } else {
+      el.textContent = '—';
+      el.classList.add('muted');
+      el.classList.remove('neg');
+    }
+  }
+
+  /* ── Core calculation ── */
+  function recalculate() {
+    const cost = getVal('cost');
+
+    /* ---- MFG ---- */
+    let mfgPrice = NaN;
+    const mfgPctEl   = $('mfg-pct');
+    const mfgPriceEl = $('mfg-price');
+
+    $(  'mfg-base').textContent = isOk(cost) ? fmtUSD(cost) : '—';
+    if  (isOk(cost) ? false : true) { $(  'mfg-base').classList.add('muted'); } else { $(  'mfg-base').classList.remove('muted'); }
+
+    if (isOk(cost)) {
+      if (mode.mfg === 'pct') {
+        const pct = getVal('mfg-pct');
+        mfgPrice = priceFromPct(cost, pct);
+        if (isOk(mfgPrice)) {
+          markCalc(mfgPriceEl, mfgPrice);
+          mfgPctEl.classList.remove('is-error');
+        } else {
+          markError(mfgPctEl);
+          markCalc(mfgPriceEl, NaN);
+        }
+      } else if (mode.mfg === 'price') {
+        mfgPrice = getVal('mfg-price');
+        if (isOk(mfgPrice)) {
+          const pct = pctFromPrice(cost, mfgPrice);
+          markCalc(mfgPctEl, pct);
+          mfgPriceEl.classList.remove('is-error');
+        } else {
+          markError(mfgPriceEl);
+          markCalc(mfgPctEl, NaN);
+        }
+      }
+    }
+
+    const mfgDollar = (isOk(cost) && isOk(mfgPrice)) ? mfgPrice - cost : NaN;
+    setCVText('mfg-dollar', mfgDollar);
+
+    /* ---- Disti ---- */
+    let distiPrice = NaN;
+    const distiPctEl   = $('disti-pct');
+    const distiPriceEl = $('disti-price');
+
+    const distiBaseEl = $('disti-base');
+    distiBaseEl.textContent = isOk(mfgPrice) ? fmtUSD(mfgPrice) : '—';
+    distiBaseEl.classList.toggle('muted', !isOk(mfgPrice));
+
+    if (isOk(mfgPrice)) {
+      if (mode.disti === 'pct') {
+        const pct = getVal('disti-pct');
+        distiPrice = priceFromPct(mfgPrice, pct);
+        if (isOk(distiPrice)) {
+          markCalc(distiPriceEl, distiPrice);
+          distiPctEl.classList.remove('is-error');
+        } else {
+          markError(distiPctEl);
+          markCalc(distiPriceEl, NaN);
+        }
+      } else if (mode.disti === 'price') {
+        distiPrice = getVal('disti-price');
+        if (isOk(distiPrice)) {
+          const pct = pctFromPrice(mfgPrice, distiPrice);
+          markCalc(distiPctEl, pct);
+          distiPriceEl.classList.remove('is-error');
+        } else {
+          markError(distiPriceEl);
+          markCalc(distiPctEl, NaN);
+        }
+      }
+    }
+
+    const distiDollar = (isOk(mfgPrice) && isOk(distiPrice)) ? distiPrice - mfgPrice : NaN;
+    setCVText('disti-dollar', distiDollar);
+
+    /* ---- VAR ---- */
+    let varPrice = NaN;
+    const varPctEl   = $('var-pct');
+    const varPriceEl = $('var-price');
+
+    const varBaseEl = $('var-base');
+    varBaseEl.textContent = isOk(distiPrice) ? fmtUSD(distiPrice) : '—';
+    varBaseEl.classList.toggle('muted', !isOk(distiPrice));
+
+    if (isOk(distiPrice)) {
+      if (mode.var === 'pct') {
+        const pct = getVal('var-pct');
+        varPrice = priceFromPct(distiPrice, pct);
+        if (isOk(varPrice)) {
+          markCalc(varPriceEl, varPrice);
+          varPctEl.classList.remove('is-error');
+        } else {
+          markError(varPctEl);
+          markCalc(varPriceEl, NaN);
+        }
+      } else if (mode.var === 'price') {
+        varPrice = getVal('var-price');
+        if (isOk(varPrice)) {
+          const pct = pctFromPrice(distiPrice, varPrice);
+          markCalc(varPctEl, pct);
+          varPriceEl.classList.remove('is-error');
+        } else {
+          markError(varPriceEl);
+          markCalc(varPctEl, NaN);
+        }
+      }
+    }
+
+    const varDollar = (isOk(distiPrice) && isOk(varPrice)) ? varPrice - distiPrice : NaN;
+    setCVText('var-dollar', varDollar);
+
+    /* ---- Waterfall ---- */
+    updateWaterfall(cost, mfgPrice, distiPrice, varPrice);
+  }
+
+  /* ── Waterfall chart ── */
+  function updateWaterfall(cost, mfgPrice, distiPrice, varPrice) {
+    const vals = [cost, mfgPrice, distiPrice, varPrice];
+    const maxVal = Math.max(...vals.map(v => (isOk(v) && v > 0 ? v : 0)));
+    const maxH = 80;
+
+    function barH(v) {
+      if (!isOk(v) || v <= 0 || maxVal === 0) return 0;
+      return Math.max(3, (v / maxVal) * maxH);
+    }
+
+    const pairs = [
+      ['wf-cost',  cost],
+      ['wf-mfg',   mfgPrice],
+      ['wf-disti', distiPrice],
+      ['wf-var',   varPrice],
+    ];
+
+    pairs.forEach(([prefix, v]) => {
+      $(prefix + '-bar').style.height = barH(v) + 'px';
+      $(prefix + '-val').textContent  = isOk(v) ? fmtUSD(v) : '—';
+    });
+  }
+
+  /* ── Event wiring ── */
+  $('cost').addEventListener('input', function () {
+    markUser(this);
+    recalculate();
+  });
+
+  ['mfg', 'disti', 'var'].forEach(function (level) {
+    $(level + '-pct').addEventListener('input', function () {
+      mode[level] = 'pct';
+      markUser(this);
+      recalculate();
+    });
+
+    $(level + '-price').addEventListener('input', function () {
+      mode[level] = 'price';
+      markUser(this);
+      recalculate();
+    });
+  });
+
+  /* ── Reset ── */
+  $('btn-reset').addEventListener('click', function () {
+    const ids = ['cost','mfg-pct','mfg-price','disti-pct','disti-price','var-pct','var-price'];
+    ids.forEach(function (id) {
+      const el = $(id);
+      el.value = '';
+      el.classList.remove('is-user', 'is-calc', 'is-error');
+    });
+
+    mode.mfg = null;
+    mode.disti = null;
+    mode.var = null;
+
+    ['mfg','disti','var'].forEach(function (level) {
+      $(level + '-base').textContent   = '—';
+      $(level + '-base').classList.add('muted');
+      $(level + '-dollar').textContent = '—';
+      $(level + '-dollar').classList.add('muted');
+    });
+
+    updateWaterfall(NaN, NaN, NaN, NaN);
+  });
+
+  recalculate();
+})();
+</script>
+</body>
+</html>
